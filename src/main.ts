@@ -97,6 +97,7 @@ function setData(id: string) {
     ]);
     let oldEl = contextEl.querySelector(`[data-id="${id}"]`);
     if (oldEl) {
+        contextEl.replaceChild(cardEl, oldEl);
     } else {
         contextEl.append(cardEl);
     }
