@@ -64,6 +64,8 @@ const inputPEl = el("div", [
     }),
 ]);
 
+document.body.append(inputPEl);
+
 function getId() {
     return String(new Date().getTime());
 }
@@ -103,7 +105,6 @@ function setData(id: string) {
     }
 }
 
-window.addEventListener("message", function (event) {
-    const base64Image = event.data;
-    imgIPreview.src = base64Image;
-});
+window["setImg"] = (img: string) => {
+    imgIPreview.src = img;
+};
