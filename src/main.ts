@@ -343,7 +343,7 @@ function getAiMess(id: string) {
             walk(p);
         }
     }
-    return list;
+    return list.toReversed();
 }
 
 window["setImg"] = (img: string) => {
