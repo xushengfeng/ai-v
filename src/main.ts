@@ -1,10 +1,19 @@
 import { el, setStyle } from "redom";
+import localforage from "localforage";
 
 type aiM = {
     role: "system" | "user" | "ai";
     content: { text: string; image?: { type: string; src: string } };
 };
 let aim: Map<string, aiM> = new Map();
+type chatgptm = { role: "system" | "user" | "assistant"; content: string }[];
+type geminim = { parts: [{ text: string }]; role: "user" | "model" }[];
+type aiconfig = { type: "chatgpt" | "gemini"; key?: string; url?: string; option?: Object };
+
+const setting = localforage.createInstance({
+    name: "setting",
+    driver: localforage.LOCALSTORAGE,
+});
 
 type rect = { x: number; y: number; w: number; h: number };
 type graphNode = Map<string, { parents: string[]; children: string[]; posi: rect }>;
@@ -58,6 +67,33 @@ const inputPEl = el("div", { class: "input" }, [
         },
     }),
 ]);
+
+const buttons = el("div", { class: "buttons" }, [
+    el(
+        "button",
+        {
+            onclick: () => {
+                settingEl.showPopover();
+            },
+        },
+        ["setting"]
+    ),
+    el(
+        "button",
+        {
+            onclick: () => {
+                historyEl.showPopover();
+            },
+        },
+        ["history"]
+    ),
+]);
+
+const aiConfigEl = el("div");
+const settingEl = el("div", { popover: "auto" }, [el("h1", "设置"), el("div", [el("h2", "AI"), aiConfigEl])]);
+const historyEl = el("div", { popover: "auto" }, [el("h1", "历史记录")]);
+
+settingEl.oninput = (e) => setSetting(e);
 
 let maxId = 0;
 
@@ -177,12 +213,14 @@ function reflashNode() {
     }
 }
 
-function runai(id: string) {
+async function runai(id: string) {
     let m = getAiMess(id);
     console.log(m);
     // run
+    const aix = ai(m, await getAiConfig("default"));
+    const text = await aix.text;
     let newId = newNode(id);
-    aim.set(newId, { content: { text: "hihihi" }, role: "ai" }); // todo
+    aim.set(newId, { content: { text: text }, role: "ai" });
     setData(newId);
 
     let newinputId = newNode(newId);
@@ -190,6 +228,94 @@ function runai(id: string) {
     setData(newinputId);
 
     inputId = newinputId;
+}
+
+function ai(m: aiM[], config: aiconfig) {
+    let chatgpt = {
+        url: config.url || `https://api.openai.com/v1/chat/completions`,
+        headers: {
+            "content-type": "application/json",
+        },
+        config: {
+            model: "gpt-3.5-turbo",
+        },
+    };
+    let gemini = {
+        url: config.url || "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+        headers: { "content-type": "application/json" },
+        config: {},
+    };
+    if (!config.type) config.type = "chatgpt";
+    let url = "";
+    let headers = {};
+    let con = {};
+    if (config.type === "chatgpt") {
+        url = chatgpt.url;
+        headers = chatgpt.headers;
+        if (config.key) headers["Authorization"] = `Bearer ${config.key}`;
+        for (let i in config.option) {
+            con[i] = config.option[i];
+        }
+        let messages: chatgptm = [];
+        const roleMap: { system: "system"; ai: "assistant"; user: "user" } = {
+            system: "system",
+            ai: "assistant",
+            user: "user",
+        };
+        for (let i of m) {
+            messages.push({ role: roleMap[i.role], content: i.content.text });
+        }
+        con["messages"] = messages;
+    }
+    if (config.type === "gemini") {
+        let newurl = new URL(gemini.url);
+        if (config.key) newurl.searchParams.set("key", config.key);
+        url = newurl.toString();
+        for (let i in config.option) {
+            con[i] = config.option[i];
+        }
+        let geminiPrompt: geminim = [];
+        for (let i of m) {
+            let role: (typeof geminiPrompt)[0]["role"];
+            if (i.role === "system" || i.role === "user") role = "user";
+            else role = "model";
+            geminiPrompt.push({ parts: [{ text: i.content.text }], role });
+        }
+        con["contents"] = geminiPrompt;
+    }
+    console.log(url);
+
+    let abort = new AbortController();
+    return {
+        stop: abort,
+        text: new Promise(async (re: (text: string) => void, rj: (err: Error) => void) => {
+            fetch(url, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(con),
+                signal: abort.signal,
+            })
+                .then((v) => {
+                    return v.json();
+                })
+                .then((t) => {
+                    if (config.type === "chatgpt") {
+                        let answer = t.choices[0].message.content;
+                        re(answer);
+                    } else {
+                        let answer = t.candidates[0].content.parts[0].text;
+                        re(answer);
+                    }
+                })
+                .catch((e) => {
+                    if (e.name === "AbortError") {
+                        return;
+                    } else {
+                        rj(e);
+                    }
+                });
+        }),
+    };
 }
 
 function newNode(parent: string) {
@@ -223,6 +349,12 @@ function getAiMess(id: string) {
 window["setImg"] = (img: string) => {
     imgIPreview.src = img;
 };
+
+document.body.append(buttons, settingEl, historyEl);
+
+getSetting();
+
+aiConfigEl.replaceWith(getAiConfigEl("default"));
 
 document.body.appendChild(contextElP);
 
@@ -469,4 +601,55 @@ function changePosi(
         w: isNaN(w) ? xel.w : w,
         h: isNaN(h) ? xel.h : h,
     };
+}
+
+function getSetting() {
+    settingEl.querySelectorAll("[data-path]").forEach(async (el: HTMLElement) => {
+        const path = el.getAttribute("data-path");
+        let value = await setting.getItem(path);
+        if (el.tagName === "INPUT") {
+            let iel = el as HTMLInputElement;
+            if (iel.type === "checkbox") {
+                iel.checked = value as boolean;
+            } else if (iel.type === "range") {
+                iel.value = value as string;
+            } else {
+                iel.value = value as string;
+            }
+        } else if (el.tagName === "SELECT") {
+            (el as HTMLSelectElement).value = value as string;
+        }
+    });
+}
+
+function setSetting(e: Event) {
+    const el = e.target as HTMLInputElement;
+    if (el.getAttribute("data-path") === null) return;
+    let value: string | number = el.value;
+    if (el.type === "number") value = Number(value);
+    setting.setItem(el.getAttribute("data-path") as string, value);
+}
+
+function getAiConfigEl(mainKey: string) {
+    mainKey = "ai." + mainKey;
+    return el("div", [
+        el("label", "type", [
+            el("select", { "data-path": `${mainKey}.type` }, [
+                el("option", "chatgpt", { value: "chatgpt" }),
+                el("option", "gemini", { value: "gemini" }),
+            ]),
+        ]),
+        el("label", "url", el("input", { "data-path": `${mainKey}.url` }, { type: "text" })),
+        el("label", "Key", [el("input", { "data-path": `${mainKey}.key` }, { type: "password" })]),
+        el("textarea", { "data-path": `${mainKey}.config` }),
+    ]);
+}
+
+async function getAiConfig(mainKey: string) {
+    mainKey = "ai." + mainKey;
+    const type = await setting.getItem(`${mainKey}.type`);
+    const url = await setting.getItem(`${mainKey}.url`);
+    const key = await setting.getItem(`${mainKey}.key`);
+    const config = await setting.getItem(`${mainKey}.config`);
+    return { type, url, key, config } as aiconfig;
 }
