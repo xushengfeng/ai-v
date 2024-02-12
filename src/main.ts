@@ -133,8 +133,8 @@ function setData(id: string) {
             style: {
                 left: style.posi.x + "px",
                 top: style.posi.y + "px",
-                width: style.posi.w + "px",
-                height: style.posi.h + "px",
+                width: style.posi.w ? style.posi.w + "px" : "auto",
+                height: style.posi.h ? style.posi.h + "px" : "auto",
             },
         },
         [
@@ -354,7 +354,7 @@ function newNode(parent: string) {
     graph.set(id, {
         parents: [parent],
         children: [],
-        posi: { x: pData.posi.x, y: pData.posi.y + pData.posi.h, w: 100, h: 100 },
+        posi: { x: pData.posi.x, y: pData.posi.y + pData.posi.h, w: 400, h: 0 },
     });
 
     return id;
@@ -390,7 +390,7 @@ document.body.append(inputPEl);
 graph.set("0", {
     parents: [],
     children: [],
-    posi: { x: 0, y: 0, w: 100, h: 100 },
+    posi: { x: 0, y: 0, w: 400, h: 0 },
 });
 aim.set(inputId, { content: { text: "" }, role: "user" });
 setData(inputId);
