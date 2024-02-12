@@ -61,6 +61,8 @@ const inputPEl = el("div", { class: "input" }, [
             };
             aim.set(inputId, data);
             setData(inputId);
+            inputEl.value = "";
+            imgIPreview.src = "";
             if (graph.get(inputId).children.length === 0) {
                 runai(inputId);
             }
