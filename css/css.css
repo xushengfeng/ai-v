@@ -166,6 +166,11 @@ body {
         position: absolute;
         & > div {
             position: absolute;
+            & > img {
+                max-width: 200px;
+                max-height: 200px;
+                border-radius: 8px;
+            }
         }
     }
 }
@@ -179,6 +184,13 @@ body {
     & > textarea {
         width: 100%;
         resize: vertical;
+    }
+    & > div {
+        & > img {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+        }
     }
 }
 

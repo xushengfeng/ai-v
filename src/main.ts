@@ -3,11 +3,25 @@ import localforage from "localforage";
 
 type aiM = {
     role: "system" | "user" | "ai";
-    content: { text: string; image?: { type: string; src: string } };
+    content: { text: string; image?: { type: string; src: string; base64: string } };
 };
 let aim: Map<string, aiM> = new Map();
-type chatgptm = { role: "system" | "user" | "assistant"; content: string }[];
-type geminim = { parts: [{ text: string }]; role: "user" | "model" }[];
+type chatgptm = {
+    role: "system" | "user" | "assistant";
+    content: string | [{ type: "text"; text: string }, { type: "image_url"; image_url: { url: string } }];
+}[];
+type geminim = {
+    parts: [
+        { text: string },
+        {
+            inline_data: {
+                mime_type: string;
+                data: string;
+            };
+        }?
+    ];
+    role: "user" | "model";
+}[];
 type aiconfig = { type: "chatgpt" | "gemini"; key?: string; url?: string; option?: Object };
 
 const setting = localforage.createInstance({
@@ -53,12 +67,14 @@ const inputPEl = el("div", { class: "input" }, [
                 role: "user",
                 content: {
                     text: inputEl.value,
-                    image: {
-                        type: mimeType,
-                        src: base64Data,
-                    }, // todo ?.
                 },
             };
+            if (base64Data)
+                data.content["image"] = {
+                    type: mimeType,
+                    src: src,
+                    base64: base64Data,
+                };
             aim.set(inputId, data);
             setData(inputId);
             inputEl.value = "";
@@ -142,7 +158,7 @@ function setData(id: string) {
             textEl,
         ]
     );
-    if (data.content.image) cardEl.appendChild(el("img", data.content.image.src));
+    if (data.content.image) cardEl.appendChild(el("img", { src: data.content.image.src }));
     let oldEl = getCard(id);
     if (oldEl) {
         contextEl.replaceChild(cardEl, oldEl);
@@ -265,7 +281,13 @@ function ai(m: aiM[], config: aiconfig) {
             user: "user",
         };
         for (let i of m) {
-            messages.push({ role: roleMap[i.role], content: i.content.text });
+            if (i.content.image) {
+                const content: chatgptm[0]["content"] = [
+                    { type: "text", text: i.content.text },
+                    { type: "image_url", image_url: { url: i.content.image.src } },
+                ];
+                messages.push({ role: roleMap[i.role], content: content });
+            } else messages.push({ role: roleMap[i.role], content: i.content.text });
         }
         con["messages"] = messages;
     }
@@ -281,7 +303,10 @@ function ai(m: aiM[], config: aiconfig) {
             let role: (typeof geminiPrompt)[0]["role"];
             if (i.role === "system" || i.role === "user") role = "user";
             else role = "model";
-            geminiPrompt.push({ parts: [{ text: i.content.text }], role });
+            const parts: geminim[0]["parts"] = [{ text: i.content.text }];
+            if (i.content.image)
+                parts.push({ inline_data: { mime_type: i.content.image.type, data: i.content.image.base64 } });
+            geminiPrompt.push({ parts: parts, role });
         }
         con["contents"] = geminiPrompt;
     }
