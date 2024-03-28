@@ -29,8 +29,7 @@ const setting = localforage.createInstance({
     driver: localforage.LOCALSTORAGE,
 });
 
-type rect = { x: number; y: number; w: number; h: number };
-type graphNode = Map<string, { parents: string[]; children: string[]; posi: rect }>;
+type graphNode = Map<string, { parents: string[]; children: string[] }>;
 let graph: graphNode = new Map();
 
 let inputId = "0";
@@ -123,19 +122,12 @@ function getId() {
 
 function setData(id: string) {
     const data = aim.get(id);
-    const style = graph.get(id);
     let textEl = el("div");
     textEl.innerText = data.content.text; // todo md
     let cardEl = el(
         "div",
         {
             "data-id": id,
-            style: {
-                left: style.posi.x + "px",
-                top: style.posi.y + "px",
-                width: style.posi.w ? style.posi.w + "px" : "auto",
-                height: style.posi.h ? style.posi.h + "px" : "auto",
-            },
         },
         [
             el("div", [
@@ -232,7 +224,10 @@ function ai(m: aiM[], config: aiconfig) {
         con["messages"] = messages;
     }
     if (config.type === "gemini") {
-        let newurl = new URL(gemini.url);
+        let gurl = gemini.url;
+        if (m.find((i) => i.content.image))
+            gurl = gurl.replaceAll("gemini-pro:generateContent", "gemini-pro-vision:generateContent");
+        let newurl = new URL(gurl);
         if (config.key) newurl.searchParams.set("key", config.key);
         url = newurl.toString();
         for (let i in config.option) {
@@ -294,7 +289,6 @@ function newNode(parent: string) {
     graph.set(id, {
         parents: [parent],
         children: [],
-        posi: { x: pData.posi.x, y: pData.posi.y + pData.posi.h, w: 400, h: 0 },
     });
 
     return id;
@@ -330,25 +324,9 @@ document.body.append(inputPEl);
 graph.set("0", {
     parents: [],
     children: [],
-    posi: { x: 0, y: 0, w: 400, h: 0 },
 });
 aim.set(inputId, { content: { text: "" }, role: "user" });
 setData(inputId);
-
-/** 画布坐标 */
-type p_point = { x: number; y: number };
-var o_e: MouseEvent;
-var o_ab_p: p_point;
-var o_rect;
-var move: boolean = false;
-var select_id = "";
-var op = { x: NaN, y: NaN };
-/**
- * - 0为全向移动
- * - 1为y
- * - 2为x
- * - 3为锁定
- */
 
 function getSetting() {
     settingEl.querySelectorAll("[data-path]").forEach(async (el: HTMLElement) => {

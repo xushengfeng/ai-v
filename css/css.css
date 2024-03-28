@@ -169,9 +169,7 @@ body {
     width: 100vw;
     flex-grow: 1;
     & > div {
-        position: absolute;
         & > div {
-            position: absolute;
             & > img {
                 max-width: 200px;
                 max-height: 200px;
