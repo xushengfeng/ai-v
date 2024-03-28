@@ -1,5 +1,7 @@
 import { el, setStyle } from "redom";
 import localforage from "localforage";
+import markdownIt from "markdown-it";
+const md = new markdownIt();
 
 type aiM = {
     role: "system" | "user" | "ai";
@@ -139,7 +141,7 @@ function getId() {
 function setData(id: string) {
     const data = aim.get(id);
     let textEl = el("div");
-    textEl.innerText = data.content.text; // todo md
+    textEl.innerHTML = md.render(data.content.text);
     let cardEl = el(
         "div",
         {
