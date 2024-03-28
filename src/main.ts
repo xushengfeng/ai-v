@@ -29,8 +29,22 @@ const setting = localforage.createInstance({
     driver: localforage.LOCALSTORAGE,
 });
 
-type graphNode = Map<string, { parents: string[]; children: string[] }>;
+const historyIndex = localforage.createInstance({
+    name: "history",
+    storeName: "index",
+});
+const history = localforage.createInstance({
+    name: "history",
+    storeName: "content",
+});
+
+let pageId = String(new Date().getTime());
+
+type graphNode = Map<string, { parents: string; children: string }>;
 let graph: graphNode = new Map();
+
+type historyIType = { title: string; createTime: number };
+let historyI: historyIType = { title: "", createTime: 0 };
 
 let inputId = "0";
 
@@ -100,6 +114,7 @@ const buttons = el("div", { class: "buttons" }, [
         {
             onclick: () => {
                 historyEl.showPopover();
+                getHistroy();
             },
         },
         ["history"]
@@ -108,7 +123,8 @@ const buttons = el("div", { class: "buttons" }, [
 
 const aiConfigEl = el("div");
 const settingEl = el("div", { popover: "auto" }, [el("h1", "设置"), el("div", [el("h2", "AI"), aiConfigEl])]);
-const historyEl = el("div", { popover: "auto" }, [el("h1", "历史记录")]);
+const historyLEl = el("div");
+const historyEl = el("div", { popover: "auto" }, [el("h1", "历史记录"), historyLEl]);
 
 settingEl.oninput = (e) => setSetting(e);
 
@@ -156,6 +172,14 @@ function setData(id: string) {
         contextEl.replaceChild(cardEl, oldEl);
     } else {
         contextEl.appendChild(cardEl);
+    }
+
+    if (data.content.text) {
+        history.setItem(pageId, { m: aim, l: graph });
+        let i = historyI;
+        if (!i.createTime) i.createTime = new Date().getTime();
+        if (!i.title) i.title = "xxx";
+        historyIndex.setItem(pageId, historyI);
     }
 }
 
@@ -284,11 +308,11 @@ function newNode(parent: string) {
     let pData = graph.get(parent);
     let id = getId();
 
-    pData.children.push(id);
+    pData.children = id;
 
     graph.set(id, {
-        parents: [parent],
-        children: [],
+        parents: parent,
+        children: "",
     });
 
     return id;
@@ -300,9 +324,7 @@ function getAiMess(id: string) {
     function walk(node: string) {
         let data = graph.get(node);
         list.push(aim.get(node));
-        for (let p of data.parents) {
-            walk(p);
-        }
+        data?.parents ?? walk(data.parents);
     }
     return list.toReversed();
 }
@@ -322,8 +344,8 @@ document.body.appendChild(contextElP);
 document.body.append(inputPEl);
 
 graph.set("0", {
-    parents: [],
-    children: [],
+    parents: "",
+    children: "",
 });
 aim.set(inputId, { content: { text: "" }, role: "user" });
 setData(inputId);
@@ -377,4 +399,26 @@ async function getAiConfig(mainKey: string) {
     const key = await setting.getItem(`${mainKey}.key`);
     const config = await setting.getItem(`${mainKey}.config`);
     return { type, url, key, config } as aiconfig;
+}
+
+async function getHistroy() {
+    let l: [string, historyIType][] = [];
+    await historyIndex.iterate((v: historyIType, k) => {
+        l.push([k, v]);
+    });
+    l = l.toReversed();
+    historyLEl.innerHTML = "";
+    for (let i of l) {
+        const x = el("div", el("span", i[1].title), {
+            onclick: async () => {
+                let data = await history.getItem(i[0]);
+                aim = data["m"];
+                graph = data["l"];
+                for (let i of aim) {
+                    setData(i[0]);
+                }
+            },
+        });
+        historyLEl.append(x);
+    }
 }
