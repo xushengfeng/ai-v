@@ -416,6 +416,7 @@ async function getHistroy() {
                 let data = await history.getItem(i[0]);
                 aim = data["m"];
                 graph = data["l"];
+                pageId = i[0];
                 for (let i of aim) {
                     setData(i[0]);
                 }
