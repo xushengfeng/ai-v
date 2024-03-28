@@ -168,6 +168,7 @@ body {
 .root {
     width: 100vw;
     flex-grow: 1;
+    overflow: scroll;
     & > div {
         & > div {
             & > img {
