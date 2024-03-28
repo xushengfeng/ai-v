@@ -78,7 +78,7 @@ const inputPEl = el("div", { class: "input" }, [
             const mimeType = parts[0].replace("data:", "");
             const base64Data = parts[1];
             let data: aiM = {
-                role: "user",
+                role: aim.get(inputId)?.role || "user",
                 content: {
                     text: inputEl.value,
                 },
