@@ -170,7 +170,14 @@ body {
     flex-grow: 1;
     overflow: scroll;
     & > div {
-        & > div {
+        & > :first-child {
+            display: flex;
+            & > div {
+                width: 24px;
+                height: 24px;
+            }
+        }
+        & > :last-child {
             & > img {
                 max-width: 200px;
                 max-height: 200px;

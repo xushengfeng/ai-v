@@ -50,8 +50,7 @@ let historyI: historyIType = { title: "", createTime: 0 };
 
 let inputId = "0";
 
-const contextEl = el("div");
-const contextElP = el("div", { class: "root" }, contextEl);
+const contextEl = el("div", { class: "root" });
 const inputEl = el("textarea");
 const imgInputEl = el("input", {
     type: "file",
@@ -341,7 +340,7 @@ getSetting();
 
 aiConfigEl.replaceWith(getAiConfigEl("default"));
 
-document.body.appendChild(contextElP);
+document.body.appendChild(contextEl);
 
 document.body.append(inputPEl);
 
